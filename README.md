@@ -3,8 +3,9 @@
 `purple-dist` coordinates local builds from the private sibling repositories in
 `~/dev/gh/`, verifies release candidates, and publishes selected artifacts as
 anonymous GitHub Release downloads. It never checks out source from GitHub.
-HABIT and TABU builds are enabled. BRAID's pin and owning build interface are
-recorded for later integration in [config/sources.yml](config/sources.yml).
+HABIT, BRAID, and TABU builds are enabled. Each application repository owns
+its build and packaging logic; `purple-dist` stages, verifies, and publishes
+the selected outputs.
 
 Run from this repository:
 
@@ -15,19 +16,26 @@ Run from this repository:
 ./release.sh habit --publish
 ./release.sh tabu --build
 ./release.sh tabu --verify
+./release.sh braid --build
+./release.sh braid --verify
 ```
 
 Build and verification need Go 1.27.2 for Intel macOS, `debpack`, `jq`, `file`,
 `tar`, `shasum`, and Git. TABU also uses `make`. They do not require
 GitHub credentials. Builds require the exact clean source revision pinned in
-the config. HABIT runs its Go tests and vet, then its release builds and Debian
-packaging script. TABU runs `make check` in a temporary source snapshot; this
-includes its tests, vet, SQLite behavior tests, and Linux amd64 cross-build with
-`CGO_ENABLED=0`. Its own packaging script assembles the `.deb` with `debpack`.
-Neither build needs a Linux host, Docker, or `dpkg-deb`. Candidates appear under
-ignored `dist/<component>-v<version>/`; temporary files appear under ignored
-`work/`. The manifest records the full source commit, build host and Go
-toolchain, timestamp, target architectures, filenames, and SHA256 values.
+the config. BRAID also needs `unzip` and `zipinfo`. HABIT runs its Go tests and
+vet, then its release builds and Debian packaging script. TABU runs `make check`
+in a temporary source snapshot; this includes its tests, vet, SQLite behavior
+tests, and Linux amd64 cross-build with `CGO_ENABLED=0`. Its own packaging script
+assembles the `.deb` with `debpack`. BRAID runs tests and vet in a detached
+worktree at the pinned commit, then invokes its native `braid-release` command
+to produce the Debian server and Windows agent ZIP. Its current pin has no exact
+source tag, so its version is the native builder's documented commit-derived
+fallback, `0.0.0+git.97b071fa8eee`. These builds do not need a Linux host, Docker,
+or `dpkg-deb`. Candidates appear under ignored `dist/<component>-v<version>/`;
+temporary files appear under ignored `work/`. The manifest records the full
+source commit, build host and Go toolchain, timestamp, target architectures,
+filenames, and SHA256 values.
 Release executables use `-trimpath` and strip symbol, DWARF, and Go build-ID
 data while retaining application version metadata where provided.
 
@@ -49,7 +57,7 @@ each asset over anonymous HTTPS and checks its hash against the candidate.
 | Component | Pinned revision | Owning build interface | Release notes |
 | --- | --- | --- | --- |
 | HABIT | `e93647ae39dc02556185c86b54a1e3395dddc32f` | `go test ./...`, `go vet ./...`, documented Windows release builds, `packaging/build-content-deb.sh` using `debpack` | Go 1.27.2; amd64 Debian package and Windows amd64 agents; version is existing package metadata. |
-| BRAID | `97b071fa8eeccc4ea7fbcc170e01a91333ebce0c` | `go test ./...`; `go run ./cmd/braid-release build` | Release command builds amd64 Debian server and a Windows amd64 agent ZIP containing `braid-agent.exe`. It requires Intel macOS and `debpack`. No source tag exists; config records the command's exact-commit fallback version. |
+| BRAID | `97b071fa8eeccc4ea7fbcc170e01a91333ebce0c` | `go test ./...`, `go vet ./...`; `go run ./cmd/braid-release build` | Release command builds an amd64 Debian server and Windows amd64 agent ZIP. It requires Intel macOS and `debpack`. No exact source tag exists; version `0.0.0+git.97b071fa8eee` follows the command's commit-derived fallback. |
 | TABU | `594ac463107b8fcfddec2cf27366882d9da2fc60` | `make check`; `packaging/build-deb.sh` using `debpack` | Pure-Go `modernc.org/sqlite` at the existing SQLite 3.53.4 version; Go 1.27.2 builds a static Linux amd64 executable with CGO disabled. Package version follows the source commit. The release script builds from a temporary source snapshot. |
 
 The earlier HABIT Debian candidate hash matches its fresh build in this

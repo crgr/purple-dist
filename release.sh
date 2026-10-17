@@ -6,13 +6,14 @@ repo_root=$(cd -- "$root/.." && pwd)
 config="$root/config/sources.yml"
 dist_root=${PURPLE_DIST_DIST:-"$root/dist"}
 verify_tmp_dir=
+braid_snapshot=
 
 usage() {
   cat <<'EOF'
 Usage: ./release.sh COMPONENT --build|--verify|--publish
        ./release.sh --help
 
-Components: habit and tabu (build, verify, publish); braid is inspected only.
+Components: habit, braid, and tabu (build, verify, publish).
 EOF
 }
 
@@ -48,7 +49,10 @@ package_version=$(field package_version) || die "missing package_version in $con
 case $component in
   habit) deb="habit-content_${package_version}_amd64.deb" ;;
   tabu) deb="tabu_${package_version}_amd64.deb" ;;
-  braid) die "braid integration is not enabled yet; see README.md" ;;
+  braid)
+    deb="braid-server_${package_version}_amd64.deb"
+    zip="braid-agent_${version}_windows_amd64.zip"
+    ;;
 esac
 
 pe_check() {
@@ -126,12 +130,63 @@ verify_tabu_candidate() {
   printf 'verified %s %s (%s)\n' "$component" "$expected_version" "$expected_commit"
 }
 
+verify_braid_candidate() {
+  local expected_commit=$1 expected_version=$2 manifest="$candidate/manifest.json" hash actual metadata
+  for command in debpack jq shasum file tar unzip zipinfo; do command -v "$command" >/dev/null || die "required verification tool missing: $command"; done
+  [[ -d $candidate ]] || die "candidate missing: $candidate"
+  [[ -s $manifest && -s $candidate/SHA256SUMS && -s $candidate/$deb && -s $candidate/$zip ]] || die "BRAID package, agent ZIP, manifest, or checksums missing"
+  [[ $(jq -r '.source.commit' "$manifest") == "$expected_commit" ]] || die "manifest source commit mismatch"
+  [[ $(jq -r '.component' "$manifest") == "$component" ]] || die "manifest component mismatch"
+  [[ $(jq -r '.version' "$manifest") == "$expected_version" ]] || die "manifest version mismatch"
+  [[ $(jq -r '.artifacts | length' "$manifest") == 2 ]] || die "unexpected BRAID artifact count in manifest"
+  (cd "$candidate" && shasum -a 256 -c SHA256SUMS) || die "artifact checksum failed"
+  for file in "$deb" "$zip"; do
+    hash=$(shasum -a 256 "$candidate/$file" | awk '{print $1}')
+    actual=$(jq -r --arg name "$file" '.artifacts[] | select(.filename == $name) | .sha256' "$manifest")
+    [[ $hash == "$actual" ]] || die "manifest checksum mismatch: $file"
+  done
+
+  debpack verify "$candidate/$deb" >/dev/null || die "Debian package verification failed"
+  metadata=$(debpack inspect "$candidate/$deb") || die "cannot inspect BRAID Debian package"
+  jq -e --arg version "$package_version" '
+    .package.Package == "braid-server" and
+    .package.Version == $version and
+    .package.Architecture == "amd64" and
+    .package.Depends == "adduser, bash, systemd, init-system-helpers" and
+    any(.payload[]; .name == "usr/bin/braid-server" and .mode == "0755") and
+    any(.payload[]; .name == "usr/lib/systemd/system/braid-server.service" and .mode == "0644") and
+    any(.payload[]; .name == "usr/share/braid/server.json" and .mode == "0644") and
+    any(.control_files[]; . == "preinst") and
+    any(.control_files[]; . == "postinst") and
+    any(.control_files[]; . == "prerm") and
+    any(.control_files[]; . == "postrm")
+  ' <<<"$metadata" >/dev/null || die "BRAID package metadata or contents do not match packaging contract"
+
+  mkdir -p "$root/work"
+  verify_tmp_dir=$(mktemp -d "$root/work/braid-verify.XXXXXX")
+  trap 'if [[ -n ${verify_tmp_dir:-} ]]; then rm -rf -- "$verify_tmp_dir"; verify_tmp_dir=; fi' RETURN
+  tar -xOf "$candidate/$deb" data.tar.gz | tar -xzOf - usr/bin/braid-server >"$verify_tmp_dir/braid-server"
+  local description
+  description=$(file -b "$verify_tmp_dir/braid-server") || die "cannot inspect BRAID server ELF"
+  [[ $description == *"ELF 64-bit LSB executable, x86-64"* && $description == *"statically linked"* ]] || die "unexpected BRAID server ELF or runtime dependencies: $description"
+  unzip -tq "$candidate/$zip" >/dev/null || die "BRAID agent ZIP integrity check failed"
+  [[ $(zipinfo -1 "$candidate/$zip" | LC_ALL=C sort | tr '\n' ' ') == "README.txt SHA256SUMS braid-agent.exe version.txt " ]] || die "unexpected BRAID agent ZIP contents"
+  unzip -p "$candidate/$zip" braid-agent.exe >"$verify_tmp_dir/braid-agent.exe"
+  pe_check "$verify_tmp_dir/braid-agent.exe"
+  local agent_hash zip_hashes
+  agent_hash=$(shasum -a 256 "$verify_tmp_dir/braid-agent.exe" | awk '{print $1}')
+  zip_hashes=$(unzip -p "$candidate/$zip" SHA256SUMS)
+  [[ $zip_hashes == "$agent_hash  braid-agent.exe" ]] || die "BRAID agent ZIP internal checksum mismatch"
+  [[ $(unzip -p "$candidate/$zip" version.txt) == *"$expected_version"* && $(unzip -p "$candidate/$zip" version.txt) == *"${expected_commit:0:12}"* ]] || die "BRAID agent version or commit provenance mismatch"
+  printf 'verified %s %s (%s)\n' "$component" "$expected_version" "$expected_commit"
+}
+
 verify_candidate() {
-  if [[ $component == habit ]]; then
-    verify_habit_candidate "$@"
-  else
-    verify_tabu_candidate "$@"
-  fi
+  case $component in
+    habit) verify_habit_candidate "$@" ;;
+    braid) verify_braid_candidate "$@" ;;
+    tabu) verify_tabu_candidate "$@" ;;
+  esac
 }
 
 case $action in
@@ -142,6 +197,10 @@ case $action in
     if [[ $component == habit ]]; then
       for command in go debpack jq shasum file tar; do command -v "$command" >/dev/null || die "required tool missing: $command"; done
       [[ $(go version) == 'go version go1.27.2 darwin/amd64' ]] || die "HABIT release requires Go 1.27.2 on darwin/amd64"
+    elif [[ $component == braid ]]; then
+      for command in go debpack jq shasum file tar unzip zipinfo git; do command -v "$command" >/dev/null || die "required tool missing: $command"; done
+      [[ $(go version) == 'go version go1.27.2 darwin/amd64' ]] || die "BRAID release requires Go 1.27.2 on darwin/amd64"
+      [[ $(uname -s) == Darwin && $(uname -m) == x86_64 ]] || die "BRAID release requires an Intel Mac"
     else
       for command in go debpack jq shasum file tar make; do command -v "$command" >/dev/null || die "required tool missing: $command"; done
       [[ $(go version) == 'go version go1.27.2 darwin/amd64' ]] || die "TABU release requires Go 1.27.2 on darwin/amd64"
@@ -152,6 +211,10 @@ case $action in
     cleanup() {
       rm -rf -- "$tmp"
       [[ -z ${tabu_snapshot:-} ]] || rm -rf -- "$tabu_snapshot"
+      if [[ -n ${braid_snapshot:-} ]]; then
+        git -C "$source" worktree remove --force "$braid_snapshot" >/dev/null 2>&1 || true
+        rm -rf -- "$braid_snapshot"
+      fi
     }
     trap cleanup EXIT
 
@@ -176,7 +239,7 @@ case $action in
         hash=$(shasum -a 256 "$tmp/candidate/$file" | awk '{print $1}')
         printf '%s  %s\n' "$hash" "$file" >>"$tmp/candidate/SHA256SUMS"
       done
-    else
+    elif [[ $component == tabu ]]; then
       tabu_snapshot=$(mktemp -d "${TMPDIR:-/tmp}/purple-dist-tabu.XXXXXX")
       git -C "$source" archive "$source_commit" | tar -x -C "$tabu_snapshot"
       (cd "$tabu_snapshot" && TABU_SOURCE_REVISION="$actual_commit" TABU_PACKAGE_VERSION="$package_version" TABU_BINARY_OUTPUT="$tmp/tabu" GOTOOLCHAIN=local packaging/build-deb.sh "$tmp/out")
@@ -186,6 +249,17 @@ case $action in
       install -m 0644 "$tmp/out/$deb" "$tmp/candidate/$deb"
       hash=$(shasum -a 256 "$tmp/candidate/$deb" | awk '{print $1}')
       printf '%s  %s\n' "$hash" "$deb" >"$tmp/candidate/SHA256SUMS"
+    else
+      braid_snapshot=$(mktemp -d "${TMPDIR:-/tmp}/purple-dist-braid.XXXXXX")
+      git -C "$source" worktree add --detach "$braid_snapshot" "$source_commit" >/dev/null
+      (cd "$braid_snapshot" && GOTOOLCHAIN=local go test ./...)
+      (cd "$braid_snapshot" && GOTOOLCHAIN=local go vet ./...)
+      (cd "$braid_snapshot" && GOTOOLCHAIN=local go run ./cmd/braid-release build --version "$version" --out "$tmp/out")
+      git -C "$source" worktree remove --force "$braid_snapshot" >/dev/null
+      braid_snapshot=
+      install -m 0644 "$tmp/out/$deb" "$tmp/candidate/$deb"
+      install -m 0644 "$tmp/out/$zip" "$tmp/candidate/$zip"
+      cp "$tmp/out/SHA256SUMS" "$tmp/candidate/SHA256SUMS"
     fi
     built_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
     go_version=$(go version)
@@ -198,12 +272,21 @@ case $action in
         --arg browser_hash "$(awk 'NR==3 {print $1}' "$tmp/candidate/SHA256SUMS")" \
         '{component:$component,version:$version,source:{commit:$commit},build:{timestamp_utc:$built_at,host:$environment,go:$go},artifacts:[{filename:$deb,architecture:$deb_arch,sha256:$deb_hash},{filename:"habit-agent.exe",architecture:"windows/amd64",sha256:$agent_hash},{filename:"habit-agent-browser.exe",architecture:"windows/amd64",sha256:$browser_hash}]}' \
         >"$tmp/candidate/manifest.json"
-    else
+    elif [[ $component == tabu ]]; then
       jq -n \
         --arg component "$component" --arg version "$version" --arg commit "$actual_commit" \
         --arg built_at "$built_at" --arg environment "$(uname -s)/$(uname -m)" --arg go "$go_version" \
         --arg deb "$deb" --arg hash "$(awk 'NR==1 {print $1}' "$tmp/candidate/SHA256SUMS")" \
         '{component:$component,version:$version,source:{commit:$commit},build:{timestamp_utc:$built_at,host:$environment,go:$go,packager:"debpack"},artifacts:[{filename:$deb,architecture:"amd64",sha256:$hash}]}' \
+        >"$tmp/candidate/manifest.json"
+    else
+      jq -n \
+        --arg component "$component" --arg version "$version" --arg commit "$actual_commit" \
+        --arg built_at "$built_at" --arg environment "$(uname -s)/$(uname -m)" --arg go "$go_version" \
+        --arg deb "$deb" --arg zip "$zip" \
+        --arg deb_hash "$(awk -v name="$deb" '$2==name {print $1}' "$tmp/candidate/SHA256SUMS")" \
+        --arg zip_hash "$(awk -v name="$zip" '$2==name {print $1}' "$tmp/candidate/SHA256SUMS")" \
+        '{component:$component,version:$version,source:{commit:$commit},build:{timestamp_utc:$built_at,host:$environment,go:$go,packager:"braid-release"},artifacts:[{filename:$deb,architecture:"amd64",sha256:$deb_hash},{filename:$zip,architecture:"windows/amd64",sha256:$zip_hash}]}' \
         >"$tmp/candidate/manifest.json"
     fi
     mv "$tmp/candidate" "$candidate"
@@ -223,6 +306,9 @@ case $action in
     if [[ $component == habit ]]; then
       assets=("$candidate/$deb" "$candidate/habit-agent.exe" "$candidate/habit-agent-browser.exe")
       asset_names=("$deb" habit-agent.exe habit-agent-browser.exe)
+    elif [[ $component == braid ]]; then
+      assets=("$candidate/$deb" "$candidate/$zip")
+      asset_names=("$deb" "$zip")
     else
       assets=("$candidate/$deb")
       asset_names=("$deb")

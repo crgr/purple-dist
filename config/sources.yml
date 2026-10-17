@@ -11,6 +11,7 @@ components:
     path: braid
     commit: 97b071fa8eeccc4ea7fbcc170e01a91333ebce0c
     version: 0.0.0+git.97b071fa8eee
+    package_version: 0.0.0+git.97b071fa8eee
     package: go run ./cmd/braid-release build
     artifacts: braid-server_<version>_amd64.deb, braid-agent_<version>_windows_amd64.zip (contains braid-agent.exe)
   tabu:
