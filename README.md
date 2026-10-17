@@ -28,6 +28,8 @@ Neither build needs a Linux host, Docker, or `dpkg-deb`. Candidates appear under
 ignored `dist/<component>-v<version>/`; temporary files appear under ignored
 `work/`. The manifest records the full source commit, build host and Go
 toolchain, timestamp, target architectures, filenames, and SHA256 values.
+Release executables use `-trimpath` and strip symbol, DWARF, and Go build-ID
+data while retaining application version metadata where provided.
 
 The source pin for HABIT is `e93647ae39dc02556185c86b54a1e3395dddc32f`.
 Its release version follows the existing package metadata:
@@ -48,7 +50,7 @@ each asset over anonymous HTTPS and checks its hash against the candidate.
 | --- | --- | --- | --- |
 | HABIT | `e93647ae39dc02556185c86b54a1e3395dddc32f` | `go test ./...`, `go vet ./...`, documented Windows release builds, `packaging/build-content-deb.sh` using `debpack` | Go 1.27.2; amd64 Debian package and Windows amd64 agents; version is existing package metadata. |
 | BRAID | `97b071fa8eeccc4ea7fbcc170e01a91333ebce0c` | `go test ./...`; `go run ./cmd/braid-release build` | Release command builds amd64 Debian server and a Windows amd64 agent ZIP containing `braid-agent.exe`. It requires Intel macOS and `debpack`. No source tag exists; config records the command's exact-commit fallback version. |
-| TABU | `5d033c8f1576274aef2ef6abac6d7cfbf478b029` | `make check`; `packaging/build-deb.sh` using `debpack` | Pure-Go `modernc.org/sqlite` at the existing SQLite 3.53.4 version; Go 1.27.2 builds a static Linux amd64 executable with CGO disabled. Package version follows the source commit. The release script builds from a temporary source snapshot. |
+| TABU | `594ac463107b8fcfddec2cf27366882d9da2fc60` | `make check`; `packaging/build-deb.sh` using `debpack` | Pure-Go `modernc.org/sqlite` at the existing SQLite 3.53.4 version; Go 1.27.2 builds a static Linux amd64 executable with CGO disabled. Package version follows the source commit. The release script builds from a temporary source snapshot. |
 
 The earlier HABIT Debian candidate hash matches its fresh build in this
 checkpoint. TABU package assembly and structural verification run natively with

@@ -160,8 +160,8 @@ case $action in
       (cd "$source" && GOTOOLCHAIN=local go test ./...)
       (cd "$source" && GOTOOLCHAIN=local go vet ./...)
       # Build binaries in source checkout to retain Go's source provenance metadata.
-      (cd "$source" && GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o "$tmp/habit-agent.exe" ./cmd/habit-agent)
-      (cd "$source" && GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags=browser -trimpath -ldflags='-s -w' -o "$tmp/habit-agent-browser.exe" ./cmd/habit-agent)
+      (cd "$source" && GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags='-s -w -buildid=' -o "$tmp/habit-agent.exe" ./cmd/habit-agent)
+      (cd "$source" && GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags=browser -trimpath -ldflags='-s -w -buildid=' -o "$tmp/habit-agent-browser.exe" ./cmd/habit-agent)
       # Package in a source snapshot so HABIT's script cannot overwrite its ignored build/ or dist/ files.
       git -C "$source" archive "$source_commit" | tar -x -C "$tmp"
       (cd "$tmp" && GOTOOLCHAIN=local packaging/build-content-deb.sh "$tmp/out")
