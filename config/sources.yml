@@ -15,7 +15,8 @@ components:
     artifacts: braid-server_<version>_amd64.deb, braid-agent_<version>_windows_amd64.zip (contains braid-agent.exe)
   tabu:
     path: tabu
-    commit: acc2a84dfe2a439e3b5edda1f6d9ed1663dcb2ad
-    version: 0.1.0~m0+gitacc2a84dfe2a
+    commit: 5d033c8f1576274aef2ef6abac6d7cfbf478b029
+    version: 0.1.0~m0+git5d033c8f157
+    package_version: 0.1.0~m0+git5d033c8f157
     package: packaging/build-deb.sh
     artifacts: tabu_<version>_amd64.deb
