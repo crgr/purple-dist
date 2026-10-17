@@ -5,6 +5,7 @@ root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(cd -- "$root/.." && pwd)
 config="$root/config/sources.yml"
 dist_root=${PURPLE_DIST_DIST:-"$root/dist"}
+source "$root/scripts/artifact-names.sh"
 verify_tmp_dir=
 braid_snapshot=
 
@@ -38,22 +39,48 @@ field() {
 source_rel=$(field path) || die "missing source path in $config"
 source_commit=$(field commit) || die "missing source commit in $config"
 version=$(field version) || die "missing version in $config"
+artifact_version=$(field artifact_version) || die "missing artifact_version in $config"
 source="$repo_root/$source_rel"
 [[ -d $source/.git ]] || die "source repository missing: $source"
 actual_commit=$(git -C "$source" rev-parse HEAD) || die "cannot read source revision: $source"
 [[ $actual_commit == "$source_commit" ]] || die "$component source revision mismatch: expected $source_commit, got $actual_commit"
 [[ -z $(git -C "$source" status --porcelain) ]] || die "$component source working tree is dirty"
 
-candidate="$dist_root/$component-v$version"
+candidate="$dist_root/$component-v$artifact_version"
 package_version=$(field package_version) || die "missing package_version in $config"
+deb=$(artifact_filename "$component" package "$artifact_version") || die "no package artifact name for $component"
+agent=
+browser=
+zip=
+native_deb=
+native_zip=
 case $component in
-  habit) deb="habit-content_${package_version}_amd64.deb" ;;
-  tabu) deb="tabu_${package_version}_amd64.deb" ;;
-  braid)
-    deb="braid-server_${package_version}_amd64.deb"
-    zip="braid-agent_${version}_windows_amd64.zip"
+  habit)
+    agent=$(artifact_filename habit agent "$artifact_version")
+    browser=$(artifact_filename habit browser "$artifact_version")
+    native_deb="habit-content_${package_version}_amd64.deb"
     ;;
+  braid)
+    zip=$(artifact_filename braid agent "$artifact_version")
+    native_deb="braid-server_${package_version}_amd64.deb"
+    native_zip="braid-agent_${version}_windows_amd64.zip"
+    ;;
+  tabu) native_deb="tabu_${package_version}_amd64.deb" ;;
 esac
+
+write_checksums() {
+  local dir=$1 file hash
+  : >"$dir/SHA256SUMS"
+  shift
+  for file in "$@"; do
+    hash=$(shasum -a 256 "$dir/$file" | awk '{print $1}')
+    printf '%s  %s\n' "$hash" "$file" >>"$dir/SHA256SUMS"
+  done
+}
+
+artifact_hash() {
+  awk -v name="$1" '$2 == name {print $1}' "$2/SHA256SUMS"
+}
 
 pe_check() {
   local path=$1 description
@@ -68,8 +95,11 @@ verify_habit_candidate() {
   [[ $(jq -r '.source.commit' "$manifest") == "$expected_commit" ]] || die "manifest source commit mismatch"
   [[ $(jq -r '.component' "$manifest") == "$component" ]] || die "manifest component mismatch"
   [[ $(jq -r '.version' "$manifest") == "$expected_version" ]] || die "manifest version mismatch"
+  [[ $(jq -r '.artifact_version' "$manifest") == "$artifact_version" ]] || die "manifest artifact version mismatch"
+  [[ $(jq -r '.package_version' "$manifest") == "$package_version" ]] || die "manifest package version mismatch"
+  [[ $(jq -r '.artifacts | length' "$manifest") == 3 ]] || die "unexpected HABIT artifact count in manifest"
   (cd "$candidate" && shasum -a 256 -c SHA256SUMS) || die "artifact checksum failed"
-  for file in "$deb" habit-agent.exe habit-agent-browser.exe; do
+  for file in "$deb" "$agent" "$browser"; do
     [[ -s "$candidate/$file" ]] || die "required artifact missing: $file"
     hash=$(shasum -a 256 "$candidate/$file" | awk '{print $1}')
     actual=$(jq -r --arg name "$file" '.artifacts[] | select(.filename == $name) | .sha256' "$manifest")
@@ -81,8 +111,8 @@ verify_habit_candidate() {
   [[ $(jq -r '.package.Package' <<<"$metadata") == habit-content ]] || die "unexpected Debian package name"
   [[ $(jq -r '.package.Version' <<<"$metadata") == "$package_version" ]] || die "unexpected Debian package version"
   [[ $(jq -r '.package.Architecture' <<<"$metadata") == amd64 ]] || die "unexpected Debian package architecture"
-  pe_check "$candidate/habit-agent.exe"
-  pe_check "$candidate/habit-agent-browser.exe"
+  pe_check "$candidate/$agent"
+  pe_check "$candidate/$browser"
   printf 'verified %s %s (%s)\n' "$component" "$expected_version" "$expected_commit"
 }
 
@@ -104,6 +134,8 @@ verify_tabu_candidate() {
   [[ $(jq -r '.source.commit' "$manifest") == "$expected_commit" ]] || die "manifest source commit mismatch"
   [[ $(jq -r '.component' "$manifest") == "$component" ]] || die "manifest component mismatch"
   [[ $(jq -r '.version' "$manifest") == "$expected_version" ]] || die "manifest version mismatch"
+  [[ $(jq -r '.artifact_version' "$manifest") == "$artifact_version" ]] || die "manifest artifact version mismatch"
+  [[ $(jq -r '.package_version' "$manifest") == "$package_version" ]] || die "manifest package version mismatch"
   (cd "$candidate" && shasum -a 256 -c SHA256SUMS) || die "artifact checksum failed"
   hash=$(shasum -a 256 "$candidate/$deb" | awk '{print $1}')
   actual=$(jq -r --arg name "$deb" '.artifacts[] | select(.filename == $name) | .sha256' "$manifest")
@@ -138,6 +170,8 @@ verify_braid_candidate() {
   [[ $(jq -r '.source.commit' "$manifest") == "$expected_commit" ]] || die "manifest source commit mismatch"
   [[ $(jq -r '.component' "$manifest") == "$component" ]] || die "manifest component mismatch"
   [[ $(jq -r '.version' "$manifest") == "$expected_version" ]] || die "manifest version mismatch"
+  [[ $(jq -r '.artifact_version' "$manifest") == "$artifact_version" ]] || die "manifest artifact version mismatch"
+  [[ $(jq -r '.package_version' "$manifest") == "$package_version" ]] || die "manifest package version mismatch"
   [[ $(jq -r '.artifacts | length' "$manifest") == 2 ]] || die "unexpected BRAID artifact count in manifest"
   (cd "$candidate" && shasum -a 256 -c SHA256SUMS) || die "artifact checksum failed"
   for file in "$deb" "$zip"; do
@@ -228,17 +262,10 @@ case $action in
       # Package in a source snapshot so HABIT's script cannot overwrite its ignored build/ or dist/ files.
       git -C "$source" archive "$source_commit" | tar -x -C "$tmp"
       (cd "$tmp" && GOTOOLCHAIN=local packaging/build-content-deb.sh "$tmp/out")
-      for file in "$deb" habit-agent.exe habit-agent-browser.exe; do
-        if [[ $file == "$deb" ]]; then
-          install -m 0644 "$tmp/out/$deb" "$tmp/candidate/$deb"
-        elif [[ $file == habit-agent.exe ]]; then
-          install -m 0644 "$tmp/habit-agent.exe" "$tmp/candidate/$file"
-        else
-          install -m 0644 "$tmp/habit-agent-browser.exe" "$tmp/candidate/$file"
-        fi
-        hash=$(shasum -a 256 "$tmp/candidate/$file" | awk '{print $1}')
-        printf '%s  %s\n' "$hash" "$file" >>"$tmp/candidate/SHA256SUMS"
-      done
+      install -m 0644 "$tmp/out/$native_deb" "$tmp/candidate/$deb"
+      install -m 0644 "$tmp/habit-agent.exe" "$tmp/candidate/$agent"
+      install -m 0644 "$tmp/habit-agent-browser.exe" "$tmp/candidate/$browser"
+      write_checksums "$tmp/candidate" "$deb" "$agent" "$browser"
     elif [[ $component == tabu ]]; then
       tabu_snapshot=$(mktemp -d "${TMPDIR:-/tmp}/purple-dist-tabu.XXXXXX")
       git -C "$source" archive "$source_commit" | tar -x -C "$tabu_snapshot"
@@ -246,9 +273,8 @@ case $action in
       rm -rf -- "$tabu_snapshot"
       tabu_snapshot=
       inspect_tabu_binary "$tmp/tabu"
-      install -m 0644 "$tmp/out/$deb" "$tmp/candidate/$deb"
-      hash=$(shasum -a 256 "$tmp/candidate/$deb" | awk '{print $1}')
-      printf '%s  %s\n' "$hash" "$deb" >"$tmp/candidate/SHA256SUMS"
+      install -m 0644 "$tmp/out/$native_deb" "$tmp/candidate/$deb"
+      write_checksums "$tmp/candidate" "$deb"
     else
       braid_snapshot=$(mktemp -d "${TMPDIR:-/tmp}/purple-dist-braid.XXXXXX")
       git -C "$source" worktree add --detach "$braid_snapshot" "$source_commit" >/dev/null
@@ -257,36 +283,40 @@ case $action in
       (cd "$braid_snapshot" && GOTOOLCHAIN=local go run ./cmd/braid-release build --version "$version" --out "$tmp/out")
       git -C "$source" worktree remove --force "$braid_snapshot" >/dev/null
       braid_snapshot=
-      install -m 0644 "$tmp/out/$deb" "$tmp/candidate/$deb"
-      install -m 0644 "$tmp/out/$zip" "$tmp/candidate/$zip"
-      cp "$tmp/out/SHA256SUMS" "$tmp/candidate/SHA256SUMS"
+      install -m 0644 "$tmp/out/$native_deb" "$tmp/candidate/$deb"
+      install -m 0644 "$tmp/out/$native_zip" "$tmp/candidate/$zip"
+      write_checksums "$tmp/candidate" "$deb" "$zip"
     fi
     built_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
     go_version=$(go version)
     if [[ $component == habit ]]; then
       jq -n \
         --arg component "$component" --arg version "$version" --arg commit "$actual_commit" \
+        --arg artifact_version "$artifact_version" --arg package_version "$package_version" \
         --arg built_at "$built_at" --arg environment "$(uname -s)/$(uname -m)" --arg go "$go_version" \
-        --arg deb "$deb" --arg deb_hash "$(awk 'NR==1 {print $1}' "$tmp/candidate/SHA256SUMS")" \
-        --arg deb_arch amd64 --arg agent_hash "$(awk 'NR==2 {print $1}' "$tmp/candidate/SHA256SUMS")" \
-        --arg browser_hash "$(awk 'NR==3 {print $1}' "$tmp/candidate/SHA256SUMS")" \
-        '{component:$component,version:$version,source:{commit:$commit},build:{timestamp_utc:$built_at,host:$environment,go:$go},artifacts:[{filename:$deb,architecture:$deb_arch,sha256:$deb_hash},{filename:"habit-agent.exe",architecture:"windows/amd64",sha256:$agent_hash},{filename:"habit-agent-browser.exe",architecture:"windows/amd64",sha256:$browser_hash}]}' \
+        --arg deb "$deb" --arg agent "$agent" --arg browser "$browser" \
+        --arg deb_hash "$(artifact_hash "$deb" "$tmp/candidate")" \
+        --arg agent_hash "$(artifact_hash "$agent" "$tmp/candidate")" \
+        --arg browser_hash "$(artifact_hash "$browser" "$tmp/candidate")" \
+        '{component:$component,version:$version,artifact_version:$artifact_version,package_version:$package_version,source:{commit:$commit},build:{timestamp_utc:$built_at,host:$environment,go:$go},artifacts:[{filename:$deb,architecture:"amd64",sha256:$deb_hash},{filename:$agent,architecture:"windows/amd64",sha256:$agent_hash},{filename:$browser,architecture:"windows/amd64",sha256:$browser_hash}]}' \
         >"$tmp/candidate/manifest.json"
     elif [[ $component == tabu ]]; then
       jq -n \
         --arg component "$component" --arg version "$version" --arg commit "$actual_commit" \
+        --arg artifact_version "$artifact_version" --arg package_version "$package_version" \
         --arg built_at "$built_at" --arg environment "$(uname -s)/$(uname -m)" --arg go "$go_version" \
-        --arg deb "$deb" --arg hash "$(awk 'NR==1 {print $1}' "$tmp/candidate/SHA256SUMS")" \
-        '{component:$component,version:$version,source:{commit:$commit},build:{timestamp_utc:$built_at,host:$environment,go:$go,packager:"debpack"},artifacts:[{filename:$deb,architecture:"amd64",sha256:$hash}]}' \
+        --arg deb "$deb" --arg hash "$(artifact_hash "$deb" "$tmp/candidate")" \
+        '{component:$component,version:$version,artifact_version:$artifact_version,package_version:$package_version,source:{commit:$commit},build:{timestamp_utc:$built_at,host:$environment,go:$go,packager:"debpack"},artifacts:[{filename:$deb,architecture:"amd64",sha256:$hash}]}' \
         >"$tmp/candidate/manifest.json"
     else
       jq -n \
         --arg component "$component" --arg version "$version" --arg commit "$actual_commit" \
+        --arg artifact_version "$artifact_version" --arg package_version "$package_version" \
         --arg built_at "$built_at" --arg environment "$(uname -s)/$(uname -m)" --arg go "$go_version" \
         --arg deb "$deb" --arg zip "$zip" \
-        --arg deb_hash "$(awk -v name="$deb" '$2==name {print $1}' "$tmp/candidate/SHA256SUMS")" \
-        --arg zip_hash "$(awk -v name="$zip" '$2==name {print $1}' "$tmp/candidate/SHA256SUMS")" \
-        '{component:$component,version:$version,source:{commit:$commit},build:{timestamp_utc:$built_at,host:$environment,go:$go,packager:"braid-release"},artifacts:[{filename:$deb,architecture:"amd64",sha256:$deb_hash},{filename:$zip,architecture:"windows/amd64",sha256:$zip_hash}]}' \
+        --arg deb_hash "$(artifact_hash "$deb" "$tmp/candidate")" \
+        --arg zip_hash "$(artifact_hash "$zip" "$tmp/candidate")" \
+        '{component:$component,version:$version,artifact_version:$artifact_version,package_version:$package_version,source:{commit:$commit},build:{timestamp_utc:$built_at,host:$environment,go:$go,packager:"braid-release"},artifacts:[{filename:$deb,architecture:"amd64",sha256:$deb_hash},{filename:$zip,architecture:"windows/amd64",sha256:$zip_hash}]}' \
         >"$tmp/candidate/manifest.json"
     fi
     mv "$tmp/candidate" "$candidate"
@@ -304,8 +334,8 @@ case $action in
     tag="$component-v$version"
     if gh release view "$tag" --repo crgr/purple-dist >/dev/null 2>&1; then die "release already exists: $tag"; fi
     if [[ $component == habit ]]; then
-      assets=("$candidate/$deb" "$candidate/habit-agent.exe" "$candidate/habit-agent-browser.exe")
-      asset_names=("$deb" habit-agent.exe habit-agent-browser.exe)
+      assets=("$candidate/$deb" "$candidate/$agent" "$candidate/$browser")
+      asset_names=("$deb" "$agent" "$browser")
     elif [[ $component == braid ]]; then
       assets=("$candidate/$deb" "$candidate/$zip")
       asset_names=("$deb" "$zip")

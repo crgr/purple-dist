@@ -3,21 +3,24 @@ components:
     path: habit
     commit: e93647ae39dc02556185c86b54a1e3395dddc32f
     version: 0.1.0-m4.5+git021f365
+    artifact_version: 0.1.0
     package_version: 0.1.0-m4.5+git021f365-1
     package: packaging/build-content-deb.sh
     tests: go test ./...; go vet ./...
-    artifacts: habit-content_<package_version>_amd64.deb, habit-agent.exe, habit-agent-browser.exe
+    artifacts: habit-content-v<artifact_version>_amd64.deb, habit-agent-v<artifact_version>_windows_amd64.exe, habit-agent-browser-v<artifact_version>_windows_amd64.exe
   braid:
     path: braid
     commit: 97b071fa8eeccc4ea7fbcc170e01a91333ebce0c
     version: 0.0.0+git.97b071fa8eee
+    artifact_version: 0.0.0
     package_version: 0.0.0+git.97b071fa8eee
     package: go run ./cmd/braid-release build
-    artifacts: braid-server_<version>_amd64.deb, braid-agent_<version>_windows_amd64.zip (contains braid-agent.exe)
+    artifacts: braid-v<artifact_version>_amd64.deb, braid-agent-v<artifact_version>_windows_amd64.zip (contains braid-agent.exe)
   tabu:
     path: tabu
     commit: 594ac463107b8fcfddec2cf27366882d9da2fc60
     version: 0.1.0~m0+git594ac463107b
+    artifact_version: 0.1.0
     package_version: 0.1.0~m0+git594ac463107b
     package: packaging/build-deb.sh
-    artifacts: tabu_<version>_amd64.deb
+    artifacts: tabu-v<artifact_version>_amd64.deb

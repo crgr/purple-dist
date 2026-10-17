@@ -18,6 +18,7 @@ Run from this repository:
 ./release.sh tabu --verify
 ./release.sh braid --build
 ./release.sh braid --verify
+./tests/test-artifact-names.sh
 ```
 
 Build and verification need Go 1.27.2 for Intel macOS, `debpack`, `jq`, `file`,
@@ -38,6 +39,16 @@ source commit, build host and Go toolchain, timestamp, target architectures,
 filenames, and SHA256 values.
 Release executables use `-trimpath` and strip symbol, DWARF, and Go build-ID
 data while retaining application version metadata where provided.
+
+Public asset names use `<component>-v<artifact_version>_<architecture>`, with
+Windows targets marked `_windows_amd64`. For example, the current outputs are
+`habit-content-v0.1.0_amd64.deb`, `habit-agent-v0.1.0_windows_amd64.exe`,
+`habit-agent-browser-v0.1.0_windows_amd64.exe`, `braid-v0.0.0_amd64.deb`,
+`braid-agent-v0.0.0_windows_amd64.zip`, and `tabu-v0.1.0_amd64.deb`. Native
+packaging names and Debian `Version` metadata remain unchanged. `version` and
+`package_version` in the manifest preserve the application/package provenance;
+`artifact_version` records the clean version used in filenames. Existing
+candidates with the previous filenames are retained under their old paths.
 
 The source pin for HABIT is `e93647ae39dc02556185c86b54a1e3395dddc32f`.
 Its release version follows the existing package metadata:
