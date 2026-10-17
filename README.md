@@ -32,7 +32,8 @@ assembles the `.deb` with `debpack`. BRAID runs tests and vet in a detached
 worktree at the pinned commit, then invokes its native `braid-release` command
 to produce the Debian server and Windows agent ZIP. Its current pin has no exact
 source tag, so its version is the native builder's documented commit-derived
-fallback, `0.0.0+git.97b071fa8eee`. These builds do not need a Linux host, Docker,
+fallback, `0.0.0+git.97b071fa8eee`; its public artifact version is `0.1.0`.
+These builds do not need a Linux host, Docker,
 or `dpkg-deb`. Candidates appear under ignored `dist/<component>-v<version>/`;
 temporary files appear under ignored `work/`. The manifest records the full
 source commit, build host and Go toolchain, timestamp, target architectures,
@@ -43,8 +44,8 @@ data while retaining application version metadata where provided.
 Public asset names use `<component>-v<artifact_version>_<architecture>`, with
 Windows targets marked `_windows_amd64`. For example, the current outputs are
 `habit-content-v0.1.0_amd64.deb`, `habit-agent-v0.1.0_windows_amd64.exe`,
-`habit-agent-browser-v0.1.0_windows_amd64.exe`, `braid-v0.0.0_amd64.deb`,
-`braid-agent-v0.0.0_windows_amd64.zip`, and `tabu-v0.1.0_amd64.deb`. Native
+`habit-agent-browser-v0.1.0_windows_amd64.exe`, `braid-v0.1.0_amd64.deb`,
+`braid-agent-v0.1.0_windows_amd64.zip`, and `tabu-v0.1.0_amd64.deb`. Native
 packaging names and Debian `Version` metadata remain unchanged. `version` and
 `package_version` in the manifest preserve the application/package provenance;
 `artifact_version` records the clean version used in filenames. Existing
@@ -53,7 +54,8 @@ candidates with the previous filenames are retained under their old paths.
 The source pin for HABIT is `e93647ae39dc02556185c86b54a1e3395dddc32f`.
 Its release version follows the existing package metadata:
 `0.1.0-m4.5+git021f365`. The Debian package version includes its Debian
-revision, `-1`. A release tag is `habit-v0.1.0-m4.5+git021f365`.
+revision, `-1`. Release tags use `<component>/v<artifact_version>`, such as
+`habit/v0.1.0`.
 
 Publishing requires GitHub CLI (`gh`) authenticated with a fine-grained token
 restricted to `crgr/purple-dist`, with repository **Contents: read and write**
@@ -68,7 +70,7 @@ each asset over anonymous HTTPS and checks its hash against the candidate.
 | Component | Pinned revision | Owning build interface | Release notes |
 | --- | --- | --- | --- |
 | HABIT | `e93647ae39dc02556185c86b54a1e3395dddc32f` | `go test ./...`, `go vet ./...`, documented Windows release builds, `packaging/build-content-deb.sh` using `debpack` | Go 1.27.2; amd64 Debian package and Windows amd64 agents; version is existing package metadata. |
-| BRAID | `97b071fa8eeccc4ea7fbcc170e01a91333ebce0c` | `go test ./...`, `go vet ./...`; `go run ./cmd/braid-release build` | Release command builds an amd64 Debian server and Windows amd64 agent ZIP. It requires Intel macOS and `debpack`. No exact source tag exists; version `0.0.0+git.97b071fa8eee` follows the command's commit-derived fallback. |
+| BRAID | `97b071fa8eeccc4ea7fbcc170e01a91333ebce0c` | `go test ./...`, `go vet ./...`; `go run ./cmd/braid-release build` | Release command builds an amd64 Debian server and Windows amd64 agent ZIP. It requires Intel macOS and `debpack`. No exact source tag exists; internal version `0.0.0+git.97b071fa8eee` follows the command's commit-derived fallback; public artifact version is `0.1.0`. |
 | TABU | `594ac463107b8fcfddec2cf27366882d9da2fc60` | `make check`; `packaging/build-deb.sh` using `debpack` | Pure-Go `modernc.org/sqlite` at the existing SQLite 3.53.4 version; Go 1.27.2 builds a static Linux amd64 executable with CGO disabled. Package version follows the source commit. The release script builds from a temporary source snapshot. |
 
 The earlier HABIT Debian candidate hash matches its fresh build in this

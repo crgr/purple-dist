@@ -331,8 +331,9 @@ case $action in
     command -v curl >/dev/null || die "curl is required for anonymous download verification"
     gh auth status >/dev/null 2>&1 || die "authenticate gh with write access to crgr/purple-dist"
     verify_candidate "$actual_commit" "$version"
-    tag="$component-v$version"
+    tag="$component/v$artifact_version"
     if gh release view "$tag" --repo crgr/purple-dist >/dev/null 2>&1; then die "release already exists: $tag"; fi
+    if [[ -n $(git ls-remote --tags origin "refs/tags/$tag" "refs/tags/$tag^{}") ]]; then die "release tag already exists: $tag"; fi
     if [[ $component == habit ]]; then
       assets=("$candidate/$deb" "$candidate/$agent" "$candidate/$browser")
       asset_names=("$deb" "$agent" "$browser")
@@ -343,8 +344,15 @@ case $action in
       assets=("$candidate/$deb")
       asset_names=("$deb")
     fi
+    distribution_commit=$(git -C "$root" rev-parse HEAD)
+    notes="Verified $component v$artifact_version from source commit $actual_commit."
+    case $component in
+      habit) notes+=" Includes the content-server Debian package and standard and browser-enabled Windows agents. Debian installation and systemd lifecycle tests were not run." ;;
+      braid) notes+=" Includes the server Debian package and Windows agent ZIP. Debian installation and systemd lifecycle tests were not run." ;;
+      tabu) notes+=" Includes the Linux amd64 Debian package. Debian installation and systemd lifecycle tests were not run." ;;
+    esac
     gh release create "$tag" "${assets[@]}" "$candidate/SHA256SUMS" "$candidate/manifest.json" \
-      --repo crgr/purple-dist --title "$component $version" --notes "Verified local build from $actual_commit."
+      --repo crgr/purple-dist --target "$distribution_commit" --title "$component v$artifact_version" --notes "$notes"
     download_dir=$(mktemp -d "$root/work/publish-check.XXXXXX")
     trap 'rm -rf -- "$download_dir"' EXIT
     asset_names+=(SHA256SUMS manifest.json)
