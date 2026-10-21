@@ -71,7 +71,7 @@ each asset over anonymous HTTPS and checks its hash against the candidate.
 | --- | --- | --- | --- |
 | HABIT | `e93647ae39dc02556185c86b54a1e3395dddc32f` | `go test ./...`, `go vet ./...`, documented Windows release builds, `packaging/build-content-deb.sh` using `debpack` | Go 1.27.2; amd64 Debian package and Windows amd64 agents; version is existing package metadata. |
 | BRAID | `97b071fa8eeccc4ea7fbcc170e01a91333ebce0c` | `go test ./...`, `go vet ./...`; `go run ./cmd/braid-release build` | Release command builds an amd64 Debian server and Windows amd64 agent ZIP. It requires Intel macOS and `debpack`. No exact source tag exists; internal version `0.0.0+git.97b071fa8eee` follows the command's commit-derived fallback; public artifact version is `0.1.0`. |
-| TABU | `594ac463107b8fcfddec2cf27366882d9da2fc60` | `make check`; `packaging/build-deb.sh` using `debpack` | Pure-Go `modernc.org/sqlite` at the existing SQLite 3.53.4 version; Go 1.27.2 builds a static Linux amd64 executable with CGO disabled. Package version follows the source commit. The release script builds from a temporary source snapshot. |
+| TABU | `8a3aa83b8c1b8abe367dda1b7a6693511b269bfa` | `make check`; `packaging/build-deb.sh` using `debpack` | Release adds DNS tunnel, beacon, and DGA detection. Pure-Go `modernc.org/sqlite`; Go 1.27.2 builds a static Linux amd64 executable with CGO disabled. Internal package version `0.2.0~dns+git8a3aa83b8c1` follows the native packager; public artifact version is `0.2.0`. The release script builds from a temporary source snapshot. |
 
 The earlier HABIT Debian candidate hash matches its fresh build in this
 checkpoint. TABU package assembly and structural verification run natively with

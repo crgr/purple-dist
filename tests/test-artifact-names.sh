@@ -14,7 +14,7 @@ check() {
   }
 }
 
-check tabu package 0.1.0 tabu-v0.1.0_amd64.deb
+check tabu package 0.2.0 tabu-v0.2.0_amd64.deb
 check braid package 0.1.0 braid-v0.1.0_amd64.deb
 check braid agent 0.1.0 braid-agent-v0.1.0_windows_amd64.zip
 check habit package 0.1.0 habit-content-v0.1.0_amd64.deb
