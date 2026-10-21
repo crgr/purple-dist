@@ -1,9 +1,9 @@
 components:
   habit:
     path: habit
-    commit: e93647ae39dc02556185c86b54a1e3395dddc32f
+    commit: 0421598e40806e241698a4d015d931531d49a708
     version: 0.1.0-m4.5+git021f365
-    artifact_version: 0.1.0
+    artifact_version: 0.1.1
     package_version: 0.1.0-m4.5+git021f365-1
     package: packaging/build-content-deb.sh
     tests: go test ./...; go vet ./...
