@@ -10,9 +10,9 @@ components:
     artifacts: habit-content-v<artifact_version>_amd64.deb, habit-agent-v<artifact_version>_windows_amd64.exe, habit-agent-browser-v<artifact_version>_windows_amd64.exe
   braid:
     path: braid
-    commit: 3d5bd9fc5507dd8edf33af2e74e66c3495afc220
-    version: 0.2.1
-    artifact_version: 0.2.1
-    package_version: 0.2.1
+    commit: c2de9a5ce26e0ea680bf655d6826a866cb364d0f
+    version: 0.2.2
+    artifact_version: 0.2.2
+    package_version: 0.2.2
     package: go run ./cmd/braid-release build
     artifacts: braid-v<artifact_version>_amd64.deb, braid-agent-v<artifact_version>_windows_amd64.zip (contains braid-agent.exe)

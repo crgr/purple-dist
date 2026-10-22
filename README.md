@@ -34,14 +34,13 @@ artifact names, and SHA256 digests. Public artifact names use
 unchanged. Release executables use `-trimpath` and strip symbols, DWARF, and Go
 build IDs while retaining application version metadata where provided.
 
-Current BRAID pin is `3d5bd9fc5507dd8edf33af2e74e66c3495afc220`. Public artifact and
-internal Debian/binary version are both `0.2.1`. This release makes `zeek` the
-canonical native collector config key and retains `tabu` as a deprecated input
-alias. Both keys in one config are rejected. After upgrading the package, use
-`braid-server config normalize --config /etc/braid/server.json --write` to
-atomically rename the old key while preserving other bytes, mode and ownership;
-repeated runs leave canonical configs untouched. Upgrade before changing the key,
-because artifact 0.2.0's executable and package scripts only understand `tabu`.
+Current BRAID pin is `c2de9a5ce26e0ea680bf655d6826a866cb364d0f`. Public artifact and
+internal Debian/binary version are both `0.2.2`. Native collector configuration,
+commands, status and operator documentation use `zeek`. Existing saved configs
+continue working silently. After upgrading the package, use
+`braid-server config normalize --config /etc/braid/server.json --write` for an
+atomic, idempotent normalization that preserves all other bytes, mode and ownership.
+Upgrade before changing an existing config, so older package scripts can read it.
 No schema migration is added; agent delivery protocol remains 2.
 
 Publishing requires GitHub CLI (`gh`) authenticated with a fine-grained token
@@ -54,7 +53,7 @@ checks each asset over anonymous HTTPS.
 | Component | Pinned revision | Build interface | Release notes |
 | --- | --- | --- | --- |
 | HABIT | `0421598e40806e241698a4d015d931531d49a708` | Go tests and vet; `packaging/build-content-deb.sh` using `debpack` | Existing package version; amd64 Debian package and standard and browser-enabled Windows agents. |
-| BRAID | `3d5bd9fc5507dd8edf33af2e74e66c3495afc220` | Go tests and vet; `go run ./cmd/braid-release build` | Intel macOS and `debpack`; amd64 Debian server and Windows amd64 agent ZIP; canonical `zeek` config, legacy `tabu` alias and idempotent config normalization. |
+| BRAID | `c2de9a5ce26e0ea680bf655d6826a866cb364d0f` | Go tests and vet; `go run ./cmd/braid-release build` | Intel macOS and `debpack`; amd64 Debian server and Windows amd64 agent ZIP; Zeek/DNS operator wording, silent saved-config compatibility and idempotent config normalization. |
 
 Debian installation and systemd lifecycle testing require a disposable Debian
 environment. No package is installed on the build host.
