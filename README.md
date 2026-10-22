@@ -34,8 +34,11 @@ artifact names, and SHA256 digests. Public artifact names use
 unchanged. Release executables use `-trimpath` and strip symbols, DWARF, and Go
 build IDs while retaining application version metadata where provided.
 
-Current BRAID pin is `c2de9a5ce26e0ea680bf655d6826a866cb364d0f`. Public artifact and
-internal Debian/binary version are both `0.2.2`. Native collector configuration,
+Current BRAID pin is `a7996b18ba68fcf57d623469ed552fe751443cb0`. Public artifact and
+internal Debian/binary version are both `0.2.3`. This release adds read-only HABIT
+installation timelines at `/habit`, with persona columns, date selection and a
+refreshed UI palette. Optional `habit_schedule_directory` defaults to
+`/etc/braid/habit`; schedule snapshots refresh on page reads. Native collector configuration,
 commands, status and operator documentation use `zeek`. Existing saved configs
 continue working silently. After upgrading the package, use
 `braid-server config normalize --config /etc/braid/server.json --write` for an
@@ -53,7 +56,7 @@ checks each asset over anonymous HTTPS.
 | Component | Pinned revision | Build interface | Release notes |
 | --- | --- | --- | --- |
 | HABIT | `0421598e40806e241698a4d015d931531d49a708` | Go tests and vet; `packaging/build-content-deb.sh` using `debpack` | Existing package version; amd64 Debian package and standard and browser-enabled Windows agents. |
-| BRAID | `c2de9a5ce26e0ea680bf655d6826a866cb364d0f` | Go tests and vet; `go run ./cmd/braid-release build` | Intel macOS and `debpack`; amd64 Debian server and Windows amd64 agent ZIP; Zeek/DNS operator wording, silent saved-config compatibility and idempotent config normalization. |
+| BRAID | `a7996b18ba68fcf57d623469ed552fe751443cb0` | Go tests and vet; `go run ./cmd/braid-release build` | Intel macOS and `debpack`; amd64 Debian server and Windows amd64 agent ZIP; HABIT installation timelines and refreshed UI palette, retaining Zeek configuration compatibility. |
 
 Debian installation and systemd lifecycle testing require a disposable Debian
 environment. No package is installed on the build host.
