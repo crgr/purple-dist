@@ -14,7 +14,7 @@ usage() {
 Usage: ./release.sh COMPONENT --build|--verify|--publish
        ./release.sh --help
 
-Components: habit, braid, and tabu (build, verify, publish).
+Components: habit and braid (build, verify, publish).
 EOF
 }
 
@@ -24,7 +24,7 @@ if [[ ${1:-} == --help || ${1:-} == -h ]]; then usage; exit 0; fi
 [[ $# == 2 ]] || { usage >&2; exit 2; }
 component=$1
 action=$2
-[[ $component =~ ^(habit|braid|tabu)$ ]] || die "unknown component: $component"
+[[ $component =~ ^(habit|braid)$ ]] || die "unknown component: $component"
 [[ $action =~ ^(--build|--verify|--publish)$ ]] || { usage >&2; exit 2; }
 
 field() {
@@ -65,7 +65,6 @@ case $component in
     native_deb="braid-server_${package_version}_amd64.deb"
     native_zip="braid-agent_${version}_windows_amd64.zip"
     ;;
-  tabu) native_deb="tabu_${package_version}_amd64.deb" ;;
 esac
 
 write_checksums() {
@@ -113,52 +112,6 @@ verify_habit_candidate() {
   [[ $(jq -r '.package.Architecture' <<<"$metadata") == amd64 ]] || die "unexpected Debian package architecture"
   pe_check "$candidate/$agent"
   pe_check "$candidate/$browser"
-  printf 'verified %s %s (%s)\n' "$component" "$expected_version" "$expected_commit"
-}
-
-inspect_tabu_binary() {
-  local path=$1 description build_info target
-  description=$(file -b "$path") || die "cannot inspect TABU executable"
-  [[ $description == *"ELF 64-bit LSB executable, x86-64"* && $description == *"statically linked"* ]] || die "unexpected TABU ELF or runtime dependencies: $description"
-  build_info=$(go version -m "$path") || die "cannot read TABU Go build information"
-  for target in $'\tGOOS=linux' $'\tGOARCH=amd64' $'\tCGO_ENABLED=0'; do
-    [[ $build_info == *"$target"* ]] || die "TABU executable missing build setting: ${target//$'\t'/}"
-  done
-}
-
-verify_tabu_candidate() {
-  local expected_commit=$1 expected_version=$2 manifest="$candidate/manifest.json" hash actual metadata
-  for command in go debpack jq shasum file tar; do command -v "$command" >/dev/null || die "required verification tool missing: $command"; done
-  [[ -d $candidate ]] || die "candidate missing: $candidate"
-  [[ -s $manifest && -s $candidate/SHA256SUMS && -s $candidate/$deb ]] || die "TABU package, manifest, or checksums missing"
-  [[ $(jq -r '.source.commit' "$manifest") == "$expected_commit" ]] || die "manifest source commit mismatch"
-  [[ $(jq -r '.component' "$manifest") == "$component" ]] || die "manifest component mismatch"
-  [[ $(jq -r '.version' "$manifest") == "$expected_version" ]] || die "manifest version mismatch"
-  [[ $(jq -r '.artifact_version' "$manifest") == "$artifact_version" ]] || die "manifest artifact version mismatch"
-  [[ $(jq -r '.package_version' "$manifest") == "$package_version" ]] || die "manifest package version mismatch"
-  (cd "$candidate" && shasum -a 256 -c SHA256SUMS) || die "artifact checksum failed"
-  hash=$(shasum -a 256 "$candidate/$deb" | awk '{print $1}')
-  actual=$(jq -r --arg name "$deb" '.artifacts[] | select(.filename == $name) | .sha256' "$manifest")
-  [[ $hash == "$actual" ]] || die "manifest checksum mismatch: $deb"
-  [[ $(jq -r '.artifacts | length' "$manifest") == 1 ]] || die "unexpected TABU artifact count in manifest"
-  debpack verify "$candidate/$deb" >/dev/null || die "Debian package verification failed"
-  metadata=$(debpack inspect "$candidate/$deb") || die "cannot inspect TABU Debian package"
-  jq -e --arg version "$package_version" '
-    .package.Package == "tabu" and
-    .package.Version == $version and
-    .package.Architecture == "amd64" and
-    .package.Depends == "libc6 (>= 2.34)" and
-    any(.payload[]; .name == "usr/bin/tabu" and .mode == "0755") and
-    any(.payload[]; .name == "etc/tabu/tabu.json" and .mode == "0644") and
-    any(.payload[]; .name == "var/lib/tabu" and .type == "directory" and .mode == "0755") and
-    (.control_files | index("conffiles") != null)
-  ' <<<"$metadata" >/dev/null || die "TABU package metadata or contents do not match packaging contract"
-
-  mkdir -p "$root/work"
-  verify_tmp_dir=$(mktemp -d "$root/work/tabu-verify.XXXXXX")
-  trap 'if [[ -n ${verify_tmp_dir:-} ]]; then rm -rf -- "$verify_tmp_dir"; verify_tmp_dir=; fi' RETURN
-  tar -xOf "$candidate/$deb" data.tar.gz | tar -xzOf - usr/bin/tabu >"$verify_tmp_dir/tabu"
-  inspect_tabu_binary "$verify_tmp_dir/tabu"
   printf 'verified %s %s (%s)\n' "$component" "$expected_version" "$expected_commit"
 }
 
@@ -219,7 +172,6 @@ verify_candidate() {
   case $component in
     habit) verify_habit_candidate "$@" ;;
     braid) verify_braid_candidate "$@" ;;
-    tabu) verify_tabu_candidate "$@" ;;
   esac
 }
 
@@ -235,16 +187,12 @@ case $action in
       for command in go debpack jq shasum file tar unzip zipinfo git; do command -v "$command" >/dev/null || die "required tool missing: $command"; done
       [[ $(go version) == 'go version go1.27.2 darwin/amd64' ]] || die "BRAID release requires Go 1.27.2 on darwin/amd64"
       [[ $(uname -s) == Darwin && $(uname -m) == x86_64 ]] || die "BRAID release requires an Intel Mac"
-    else
-      for command in go debpack jq shasum file tar make; do command -v "$command" >/dev/null || die "required tool missing: $command"; done
-      [[ $(go version) == 'go version go1.27.2 darwin/amd64' ]] || die "TABU release requires Go 1.27.2 on darwin/amd64"
     fi
     [[ ! -e $candidate ]] || die "candidate already exists: $candidate; remove it manually after review"
     mkdir -p "$root/work" "$dist_root"
     tmp=$(mktemp -d "$root/work/$component.XXXXXX")
     cleanup() {
       rm -rf -- "$tmp"
-      [[ -z ${tabu_snapshot:-} ]] || rm -rf -- "$tabu_snapshot"
       if [[ -n ${braid_snapshot:-} ]]; then
         git -C "$source" worktree remove --force "$braid_snapshot" >/dev/null 2>&1 || true
         rm -rf -- "$braid_snapshot"
@@ -266,15 +214,6 @@ case $action in
       install -m 0644 "$tmp/habit-agent.exe" "$tmp/candidate/$agent"
       install -m 0644 "$tmp/habit-agent-browser.exe" "$tmp/candidate/$browser"
       write_checksums "$tmp/candidate" "$deb" "$agent" "$browser"
-    elif [[ $component == tabu ]]; then
-      tabu_snapshot=$(mktemp -d "${TMPDIR:-/tmp}/purple-dist-tabu.XXXXXX")
-      git -C "$source" archive "$source_commit" | tar -x -C "$tabu_snapshot"
-      (cd "$tabu_snapshot" && TABU_SOURCE_REVISION="$actual_commit" TABU_PACKAGE_VERSION="$package_version" TABU_BINARY_OUTPUT="$tmp/tabu" GOTOOLCHAIN=local packaging/build-deb.sh "$tmp/out")
-      rm -rf -- "$tabu_snapshot"
-      tabu_snapshot=
-      inspect_tabu_binary "$tmp/tabu"
-      install -m 0644 "$tmp/out/$native_deb" "$tmp/candidate/$deb"
-      write_checksums "$tmp/candidate" "$deb"
     else
       braid_snapshot=$(mktemp -d "${TMPDIR:-/tmp}/purple-dist-braid.XXXXXX")
       git -C "$source" worktree add --detach "$braid_snapshot" "$source_commit" >/dev/null
@@ -299,14 +238,6 @@ case $action in
         --arg agent_hash "$(artifact_hash "$agent" "$tmp/candidate")" \
         --arg browser_hash "$(artifact_hash "$browser" "$tmp/candidate")" \
         '{component:$component,version:$version,artifact_version:$artifact_version,package_version:$package_version,source:{commit:$commit},build:{timestamp_utc:$built_at,host:$environment,go:$go},artifacts:[{filename:$deb,architecture:"amd64",sha256:$deb_hash},{filename:$agent,architecture:"windows/amd64",sha256:$agent_hash},{filename:$browser,architecture:"windows/amd64",sha256:$browser_hash}]}' \
-        >"$tmp/candidate/manifest.json"
-    elif [[ $component == tabu ]]; then
-      jq -n \
-        --arg component "$component" --arg version "$version" --arg commit "$actual_commit" \
-        --arg artifact_version "$artifact_version" --arg package_version "$package_version" \
-        --arg built_at "$built_at" --arg environment "$(uname -s)/$(uname -m)" --arg go "$go_version" \
-        --arg deb "$deb" --arg hash "$(artifact_hash "$deb" "$tmp/candidate")" \
-        '{component:$component,version:$version,artifact_version:$artifact_version,package_version:$package_version,source:{commit:$commit},build:{timestamp_utc:$built_at,host:$environment,go:$go,packager:"debpack"},artifacts:[{filename:$deb,architecture:"amd64",sha256:$hash}]}' \
         >"$tmp/candidate/manifest.json"
     else
       jq -n \
@@ -340,16 +271,12 @@ case $action in
     elif [[ $component == braid ]]; then
       assets=("$candidate/$deb" "$candidate/$zip")
       asset_names=("$deb" "$zip")
-    else
-      assets=("$candidate/$deb")
-      asset_names=("$deb")
     fi
     distribution_commit=$(git -C "$root" rev-parse HEAD)
     notes="Verified $component v$artifact_version from source commit $actual_commit."
     case $component in
       habit) notes+=" Includes the content-server Debian package and standard and browser-enabled Windows agents. Debian installation and systemd lifecycle tests were not run." ;;
       braid) notes+=" Includes the server Debian package and Windows agent ZIP. Debian installation and systemd lifecycle tests were not run." ;;
-      tabu) notes+=" Includes the Linux amd64 Debian package. Debian installation and systemd lifecycle tests were not run." ;;
     esac
     gh release create "$tag" "${assets[@]}" "$candidate/SHA256SUMS" "$candidate/manifest.json" \
       --repo crgr/purple-dist --target "$distribution_commit" --title "$component v$artifact_version" --notes "$notes"

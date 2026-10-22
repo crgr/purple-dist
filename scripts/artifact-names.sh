@@ -8,7 +8,6 @@ artifact_filename() {
     habit:browser) printf 'habit-agent-browser-v%s_windows_amd64.exe\n' "$version" ;;
     braid:package) printf 'braid-v%s_amd64.deb\n' "$version" ;;
     braid:agent) printf 'braid-agent-v%s_windows_amd64.zip\n' "$version" ;;
-    tabu:package) printf 'tabu-v%s_amd64.deb\n' "$version" ;;
     *) return 1 ;;
   esac
 }
