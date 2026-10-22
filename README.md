@@ -40,10 +40,6 @@ commit-derived fallback, `0.0.0+git.24542b69c52d`. Public artifact version is
 `0.2.0`; this release adds integrated Zeek DNS analysis to BRAID's existing
 server and agent distribution.
 
-Standalone TABU releases are retired. BRAID now owns the DNS analysis
-functionality. Previously published TABU releases remain available as
-historical releases; this factory no longer builds or publishes them.
-
 Publishing requires GitHub CLI (`gh`) authenticated with a fine-grained token
 restricted to `crgr/purple-dist`, with repository **Contents: read and write**
 permission. Keep the token in the CLI credential store or `GH_TOKEN`, never in
