@@ -17,6 +17,7 @@ check() {
 check braid package 0.1.0 braid-v0.1.0_amd64.deb
 check braid package 0.2.0 braid-v0.2.0_amd64.deb
 check braid agent 0.2.0 braid-agent-v0.2.0_windows_amd64.zip
+check braid x 0.2.0 braid-x-v0.2.0_amd64.deb
 check habit package 0.1.0 habit-content-v0.1.0_amd64.deb
 check habit agent 0.1.0 habit-agent-v0.1.0_windows_amd64.exe
 check habit browser 0.1.0 habit-agent-browser-v0.1.0_windows_amd64.exe

@@ -15,4 +15,4 @@ components:
     artifact_version: 0.2.4
     package_version: 0.2.4
     package: go run ./cmd/braid-release build
-    artifacts: braid-v<artifact_version>_amd64.deb, braid-agent-v<artifact_version>_windows_amd64.zip (contains braid-agent.exe)
+    artifacts: braid-v<artifact_version>_amd64.deb, braid-agent-v<artifact_version>_windows_amd64.zip, braid-x-v<artifact_version>_amd64.deb

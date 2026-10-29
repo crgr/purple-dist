@@ -14,15 +14,23 @@ logic. This factory currently supports HABIT and BRAID.
 ./release.sh braid --verify
 ./release.sh braid --publish
 ./tests/test-artifact-names.sh
+./tests/test-braid-source-sync.sh
+./tests/test-braid-pin-sync.sh
 ```
 
 Builds require Go 1.27.2 on Intel macOS, `debpack`, `jq`, `file`, `tar`,
 `shasum`, and Git. BRAID also needs `unzip` and `zipinfo`. Builds and
 verification need no GitHub credentials. Both pipelines require the exact
-clean source revision in `config/sources.yml`. HABIT runs its tests, vet, and
+clean source trees. HABIT requires its configured source revision. When BRAID's
+clean HEAD advances from the configured revision, the factory automatically builds
+the new commit with a Git timestamp/revision suffix on all component versions.
+Non-descendant BRAID revisions require an explicit pin update.
+HABIT runs its tests, vet, and
 native Debian packaging. BRAID runs tests and vet in a detached worktree, then
-uses its native `braid-release` command to package the Debian server and
-Windows agent ZIP. BRAID now includes native Zeek DNS tunnel, beacon, and DGA
+uses its native `braid-release` command to package the Debian server, standalone
+`braid-x` Debian package and Windows agent ZIP. Historical candidates without
+`braid-x` remain verifiable; building a new candidate requires a BRAID source
+revision that produces it. BRAID now includes native Zeek DNS tunnel, beacon, and DGA
 analysis. These builds need no Linux host, Docker, or `dpkg-deb`.
 
 Candidates appear under ignored `dist/<component>-v<artifact_version>/`;
@@ -52,6 +60,13 @@ permission. Keep the token in the CLI credential store or `GH_TOKEN`, never in
 this repository. Publishing re-verifies the candidate, refuses an existing
 release tag, uploads only selected artifacts, checksums, and manifest, then
 checks each asset over anonymous HTTPS.
+
+Publishing a complete BRAID release then atomically updates the local PURPLE
+component lock for the server, Windows agent (including Windows `x`) and Linux
+`braid-x`, using the verified published hashes and one source revision. A locally
+modified PURPLE lock blocks publication so it is never overwritten. Review and
+commit the synchronized PURPLE lock, refresh the Ludus Source, then deploy the
+matching roles; publication does not deploy the range.
 
 | Component | Pinned revision | Build interface | Release notes |
 | --- | --- | --- | --- |
