@@ -42,11 +42,12 @@ artifact names, and SHA256 digests. Public artifact names use
 unchanged. Release executables use `-trimpath` and strip symbols, DWARF, and Go
 build IDs while retaining application version metadata where provided.
 
-Current BRAID pin is `b69e28674bdd21297f17d7bd6c509a2608082a83`. Public artifact and
+Current BRAID pin is `2ce15d2ab828a89f81833ec4e240def43c3e7694`. Public artifact and
 internal Debian/binary version are both `0.2.4`. This release adds the host-grouped
 event and finding timeline at `/lanes`, compact Exercises and Administration menus,
-and an embedded BRAID favicon. Read-only administration entry paths redirect to
-Exercise management. Native collector configuration,
+and an embedded BRAID favicon. The latest source adds synchronized operator
+command markers and standalone `x` clients for Linux and Windows. Read-only
+administration entry paths redirect to Exercise management. Native collector configuration,
 commands, status and operator documentation use `zeek`. Existing saved configs
 continue working silently. After upgrading the package, use
 `braid-server config normalize --config /etc/braid/server.json --write` for an
@@ -71,7 +72,7 @@ matching roles; publication does not deploy the range.
 | Component | Pinned revision | Build interface | Release notes |
 | --- | --- | --- | --- |
 | HABIT | `0421598e40806e241698a4d015d931531d49a708` | Go tests and vet; `packaging/build-content-deb.sh` using `debpack` | Existing package version; amd64 Debian package and standard and browser-enabled Windows agents. |
-| BRAID | `b69e28674bdd21297f17d7bd6c509a2608082a83` | Go tests and vet; `go run ./cmd/braid-release build` | Intel macOS and `debpack`; amd64 Debian server and Windows amd64 agent ZIP; host-grouped event and finding timeline, compact navigation and embedded favicon, retaining Zeek configuration compatibility. |
+| BRAID | `2ce15d2ab828a89f81833ec4e240def43c3e7694` | Go tests and vet; `go run ./cmd/braid-release build` | Intel macOS and `debpack`; amd64 Debian server and Windows amd64 agent ZIP; host-grouped event and finding timeline, compact navigation, embedded favicon, and synchronized operator command markers with standalone `x` clients. |
 
 Debian installation and systemd lifecycle testing require a disposable Debian
 environment. No package is installed on the build host.

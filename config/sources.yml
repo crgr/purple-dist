@@ -10,7 +10,7 @@ components:
     artifacts: habit-content-v<artifact_version>_amd64.deb, habit-agent-v<artifact_version>_windows_amd64.exe, habit-agent-browser-v<artifact_version>_windows_amd64.exe
   braid:
     path: braid
-    commit: b69e28674bdd21297f17d7bd6c509a2608082a83
+    commit: 2ce15d2ab828a89f81833ec4e240def43c3e7694
     version: 0.2.4
     artifact_version: 0.2.4
     package_version: 0.2.4
