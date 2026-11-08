@@ -42,18 +42,11 @@ artifact names, and SHA256 digests. Public artifact names use
 unchanged. Release executables use `-trimpath` and strip symbols, DWARF, and Go
 build IDs while retaining application version metadata where provided.
 
-Current BRAID pin is `2ce15d2ab828a89f81833ec4e240def43c3e7694`. Public artifact and
-internal Debian/binary version are both `0.2.4`. This release adds the host-grouped
-event and finding timeline at `/lanes`, compact Exercises and Administration menus,
-and an embedded BRAID favicon. The latest source adds synchronized operator
-command markers and standalone `x` clients for Linux and Windows. Read-only
-administration entry paths redirect to Exercise management. Native collector configuration,
-commands, status and operator documentation use `zeek`. Existing saved configs
-continue working silently. After upgrading the package, use
-`braid-server config normalize --config /etc/braid/server.json --write` for an
-atomic, idempotent normalization that preserves all other bytes, mode and ownership.
-Upgrade before changing an existing config, so older package scripts can read it.
-No schema migration is added; agent delivery protocol remains 2.
+Current BRAID pin is `c4dbae0d6d3c5735f652ccdcb5be7d9af7602025`, version `0.6.2`. BRAID owns its packager,
+`packaging/braid-release`, and its Debian inputs in `packaging/debian`. For a new BRAID
+release, set `commit` to the clean BRAID HEAD and bump `version`, `artifact_version` and
+`package_version` to the next patch number; a HEAD that only descends from the pin gets the
+`+git.<time>.<revision>` suffix instead.
 
 Publishing requires GitHub CLI (`gh`) authenticated with a fine-grained token
 restricted to `crgr/purple-dist`, with repository **Contents: read and write**
@@ -72,7 +65,7 @@ matching roles; publication does not deploy the range.
 | Component | Pinned revision | Build interface | Release notes |
 | --- | --- | --- | --- |
 | HABIT | `0421598e40806e241698a4d015d931531d49a708` | Go tests and vet; `packaging/build-content-deb.sh` using `debpack` | Existing package version; amd64 Debian package and standard and browser-enabled Windows agents. |
-| BRAID | `2ce15d2ab828a89f81833ec4e240def43c3e7694` | Go tests and vet; `go run ./cmd/braid-release build` | Intel macOS and `debpack`; amd64 Debian server and Windows amd64 agent ZIP; host-grouped event and finding timeline, compact navigation, embedded favicon, and synchronized operator command markers with standalone `x` clients. |
+| BRAID | `c4dbae0d6d3c5735f652ccdcb5be7d9af7602025` | Go tests and vet; `go run ./packaging/braid-release build` | Intel macOS and `debpack`; amd64 Debian server, standalone `braid-x` Debian package, and Windows amd64 ZIP with the agent and `x.exe`. |
 
 Debian installation and systemd lifecycle testing require a disposable Debian
 environment. No package is installed on the build host.

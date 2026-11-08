@@ -270,7 +270,7 @@ case $action in
       git -C "$source" worktree add --detach "$braid_snapshot" "$source_commit" >/dev/null
       (cd "$braid_snapshot" && GOTOOLCHAIN=local go test ./...)
       (cd "$braid_snapshot" && GOTOOLCHAIN=local go vet ./...)
-      (cd "$braid_snapshot" && GOTOOLCHAIN=local go run ./cmd/braid-release build --version "$version" --out "$tmp/out")
+      (cd "$braid_snapshot" && GOTOOLCHAIN=local go run ./packaging/braid-release build --version "$version" --out "$tmp/out")
       git -C "$source" worktree remove --force "$braid_snapshot" >/dev/null
       braid_snapshot=
       install -m 0644 "$tmp/out/$native_deb" "$tmp/candidate/$deb"
